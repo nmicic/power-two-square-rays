@@ -210,7 +210,7 @@ def compute_ant_path(n: int) -> List[Tuple[int, int]]:
 
 def odd_core_to_key(a: int, exp: int) -> int:
     """
-    Convert odd core to theta-key using pure bitwise operations.
+    Convert odd core to theta_key using pure bitwise operations.
     
     THETA_KEY EXPLAINED:
     ====================
@@ -254,7 +254,7 @@ def odd_core_to_key(a: int, exp: int) -> int:
         exp: Exponent defining normalization (key will be exp-1 bits)
         
     Returns:
-        Theta-key for this odd number in [0, 2^(exp-1))
+        theta_key for this odd number in [0, 2^(exp-1))
     """
     if a == 1:
         return 0
@@ -353,7 +353,7 @@ def coord(n: int) -> Tuple[float, float]:
 def angle_from_coord(n: int) -> float:
     """
     [VISUALIZATION HELPER - uses trig]
-    Angle θ(n) (in radians) via coord(n).
+    Angle theta(n) (in radians) via coord(n).
     Used by SVG functions for display only.
     """
     x, y = coord(n)

@@ -1,3 +1,7 @@
+# ARCHIVED / EXPERIMENTAL CODE — NOT MAINTAINED
+# This file remains for reference only.
+# Do NOT use in production. No support, no guarantees.
+
 # Square Ray Operations - Unified Documentation
 
 **Version 3.0** — Unified Edition covering both modules

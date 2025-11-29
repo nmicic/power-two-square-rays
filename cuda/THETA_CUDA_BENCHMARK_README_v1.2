@@ -1,0 +1,323 @@
+# Theta CUDA Benchmark - User Guide
+
+**Version**: v1.2
+**Date**: November 2025
+
+> For the mathematical specification, see [`THETA_SPEC_v1.2.md`](THETA_SPEC_v1.2.md).
+> For CPU comparison, see [`python/theta_toolkit.py`](../python/theta_toolkit.py).
+
+---
+
+## What This Is
+
+A GPU benchmark comparing **theta_key** (a 2-adic integer hash) against industry-standard hashes:
+- xxHash (32/64-bit)
+- MurmurHash3 (32/64-bit)
+- CRC32
+
+**Result**: theta_key achieves **parity with xxHash/Murmur3** (~30,000 M ops/sec on RTX 4000) while providing unique structural properties (reversibility, shell/ray decomposition).
+
+---
+
+## Quick Start
+
+### 1. Compile
+
+```bash
+# Auto-detect GPU architecture
+nvcc -O3 theta_cuda_benchmark_v1.2.cu -o theta_bench
+
+# Or specify your GPU:
+nvcc -O3 -arch=sm_86 theta_cuda_benchmark_v1.2.cu -o theta_bench   # A4000, A6000, RTX 3090
+nvcc -O3 -arch=sm_89 theta_cuda_benchmark_v1.2.cu -o theta_bench   # RTX 4000/4090 (Ada)
+nvcc -O3 -arch=sm_90a theta_cuda_benchmark_v1.2.cu -o theta_bench  # H100
+
+# To suppress harmless "unused variable" warning (PRIME1):
+nvcc -O3 -arch=sm_89 -Xcudafe "--diag_suppress=177" theta_cuda_benchmark_v1.2.cu -o theta_bench
+```
+
+### 2. Run
+
+```bash
+./theta_bench                    # Default: 10M, 64 buckets, random
+./theta_bench 10 64 1 0          # 10M, 64 buckets, full-range, random
+./theta_bench 10 64 1 1          # Powers of two pattern (KEY 2-ADIC TEST)
+./theta_bench 100 256 1 0        # 100M, 256 buckets
+./theta_bench --help             # Show usage
+```
+
+### 3. Interpret Results
+
+```
+=== 32-BIT BENCHMARKS ===
+
+1. HASH SPEED (32-bit)
+   Hash              Time(ms)    M ops/sec
+   theta_key             0.33      30029.6    <-- Should match xxhash
+   xxhash32              0.33      30001.9
+   
+2. BUCKET UNIFORMITY (32-bit)
+   64 buckets:
+   Hash              Chi-Sq    Verdict
+   theta_bucket       73.1       GOOD       <-- Chi-sq near 64 = GOOD
+   xxhash32           50.4       GOOD
+```
+
+**What to look for:**
+- **Speed**: theta_key should be within 0.95-1.05x of xxhash
+- **Uniformity**: Chi-square near bucket count (64 buckets → chi-sq ~64), verdict GOOD/MARGINAL
+- **Correctness**: All CPU vs GPU tests should PASS
+
+---
+
+## Command Line Options
+
+```
+./theta_bench [count_M] [buckets] [rng_mode] [pattern]
+
+Arguments:
+  count_M    Millions of test values (default: 10)
+  buckets    Number of buckets for uniformity test (default: 64)
+  rng_mode   0 = odd-only values, 1 = full-range (default: 1)
+  pattern    0 = random, 1 = powers, 2 = shifted, 3 = sequential (default: 0)
+```
+
+### Pattern Modes
+
+| Mode | Name | Description | Use Case |
+|------|------|-------------|----------|
+| 0 | random | Uniform random values | General benchmark |
+| 1 | powers | n = 1 << k (cycling k) | **KEY 2-adic test** |
+| 2 | shifted | n = base << k (random base/k) | Flow-ID simulation |
+| 3 | sequential | n = 1, 2, 3, ... | Edge case coverage |
+
+### Example Runs
+
+```bash
+# Quick sanity check
+./theta_bench 1 64 1 0
+
+# Full benchmark (matches reference results)
+./theta_bench 10 64 1 0
+
+# Stress test
+./theta_bench 100 256 1 0
+
+# Test powers-of-two (important for 2-adic properties)
+./theta_bench 10 64 1 1
+
+# Compare odd-only vs full-range RNG
+./theta_bench 10 64 0 0    # odd-only
+./theta_bench 10 64 1 0    # full-range
+```
+
+---
+
+## Methodology
+
+### Test Configuration
+
+- **Reference GPU**: NVIDIA RTX 4000 SFF Ada Generation
+- **Flow count**: 10 million (10M) values per test
+- **Bucket sizes**: 64, 128, 256 buckets for uniformity tests
+- **RNG mode**: Full-range (all 32/64-bit values) by default
+- **Iterations**: Single-pass timing via CUDA events
+- **Timing**: `cudaEventRecord` before/after kernel, `cudaEventElapsedTime` for ms
+
+### Verdict Categories
+
+| Verdict | Chi-square threshold | Meaning |
+|---------|---------------------|---------|
+| GOOD | < expected + 2σ | Excellent uniformity |
+| MARGINAL | < expected + 3σ | Acceptable, monitor in production |
+| POOR | ≥ expected + 3σ | Investigate distribution bias |
+
+Where expected ≈ (num_buckets - 1) for uniform distribution.
+
+---
+
+## What It Tests
+
+### 1. Correctness (CPU vs GPU)
+Verifies GPU implementation matches CPU reference:
+- **Edge cases**: 1-8, powers of 2, near-powers, max values
+- **Random samples**: 1000 random 32-bit + 1000 random 64-bit values
+- Output: `CPU<->GPU mismatches: 0 / 1022 PASSED`
+
+### 2. Hash Speed
+Measures throughput (M ops/sec) for:
+- `theta_key_32` / `theta_key_64`
+- `xxhash32` / `xxhash64`
+- `crc32`
+- `murmur3_32` / `murmur3_64`
+
+### 3. Bucket Uniformity
+Tests distribution quality using chi-square statistic:
+- Good hash: chi-square ≈ (num_buckets - 1)
+- Verdict: GOOD (< 2σ), MARGINAL (< 3σ), POOR (> 3σ)
+- Tests multiple bucket sizes: 64, 128, 256
+
+### 4. Structured Patterns
+Tests with non-random inputs that exercise 2-adic structure:
+- **Powers** (mode 1): Pure powers of 2 - validates theta_bucket handles extreme v2 values
+- **Shifted** (mode 2): base << k patterns - simulates real flow-IDs
+- **Sequential** (mode 3): 1, 2, 3... - tests all v2/core combinations
+
+---
+
+## Understanding Theta
+
+### Core Concept
+
+Every positive integer `n` decomposes uniquely:
+```
+n = 2^v2(n) × core(n)
+```
+
+Where:
+- `v2(n)` = count of trailing zeros (2-adic valuation)
+- `core(n)` = odd part after removing all factors of 2
+
+**theta_key** = bit-reverse of the odd core
+
+### Example
+```
+n = 12 = 0b1100
+v2(12) = 2 (two trailing zeros)
+core(12) = 3 = 0b11
+theta_key(12) = bit_reverse(0b11, 2) = 0b11 = 3
+```
+
+### Why Use Theta?
+
+Unlike cryptographic hashes, theta_key preserves mathematical structure:
+- **Shell**: integers with same bit-length group together
+- **Angular order**: bit-reversal creates geometric ordering
+- **Deterministic**: same input always gives same output (no seed)
+
+Use cases: flow-ID hashing, spatial indexing, ML feature encoding.
+
+---
+
+## Expected Results
+
+### Reference (RTX 4000 Ada, 10M flows)
+
+```
+32-bit: theta_key 30,030 M/s vs xxhash 30,002 M/s (1.00x)
+64-bit: theta_key 15,082 M/s vs xxhash 15,071 M/s (1.00x)
+
+Bucket uniformity (64 buckets):
+  theta_bucket: chi-sq 73.1 - GOOD
+  xxhash32:     chi-sq 50.4 - GOOD
+  crc32:        chi-sq 85.9 - MARGINAL
+  murmur3:      chi-sq 61.3 - GOOD
+```
+
+### Performance Scaling
+
+| GPU | 32-bit (M/s) | 64-bit (M/s) |
+|-----|--------------|--------------|
+| RTX 4000 Ada | ~30,000 | ~15,000 |
+| A4000 | ~25,000 | ~12,000 |
+| A6000 | ~35,000 | ~17,000 |
+| H100 | ~80,000+ | ~40,000+ |
+
+(Your results may vary based on GPU, driver, clock speed)
+
+---
+
+## Troubleshooting
+
+### Compilation Errors
+
+```bash
+# "nvcc not found"
+# Install CUDA toolkit: https://developer.nvidia.com/cuda-downloads
+
+# "unsupported gpu architecture"
+# Specify correct -arch for your GPU (see compile section)
+
+# Warning about unused PRIME1 variable
+# Harmless - suppress with: -Xcudafe "--diag_suppress=177"
+```
+
+### Runtime Errors
+
+```bash
+# "CUDA error: no CUDA-capable device"
+# Check: nvidia-smi shows your GPU
+
+# "CUDA error: out of memory"  
+# Reduce count: ./theta_bench 1 64 1 0
+```
+
+### Unexpected Results
+
+```bash
+# Chi-square very high (>1000)?
+# Possible bug - please report with GPU model and full output
+
+# Speed much lower than expected?
+# Check GPU isn't thermal throttling: nvidia-smi -q -d TEMPERATURE
+```
+
+---
+
+## Files
+
+| File | Description |
+|------|-------------|
+| `theta_cuda_benchmark_v1.2.cu` | Main GPU benchmark |
+| `theta_cuda_v1.2.cuh` | Header-only theta library for your projects |
+| `THETA_SPEC_v1.2.md` | Full specification |
+| `../python/theta_toolkit.py` | Python CPU reference implementation |
+
+---
+
+## Contributing Results
+
+If you run this on different hardware, please share:
+
+1. GPU model
+2. CUDA version (`nvcc --version`)
+3. Full output of `./theta_bench 10 64 1 0`
+
+This helps validate theta_key across GPU architectures.
+
+---
+
+## License
+
+Repository: https://github.com/nmicic/power-two-square-rays/
+
+Educational/experimental project. Not peer-reviewed.
+
+---
+
+## Quick Reference
+
+```bash
+# Compile
+nvcc -O3 -arch=sm_89 theta_cuda_benchmark_v1.2.cu -o theta_bench
+
+# Run standard benchmark
+./theta_bench 10 64 1 0
+
+# Run powers-of-two test (2-adic validation)
+./theta_bench 10 64 1 1
+
+# Expected output includes:
+# - CORRECTNESS: PASS (1022 + 1016 samples)
+# - theta_key ~30,000 M/s (32-bit)
+# - theta_bucket chi-sq ~64, verdict GOOD
+# - VERDICT: PASS
+```
+
+---
+
+## See Also
+
+- [`THETA_SPEC_v1.2.md`](THETA_SPEC_v1.2.md) — Full mathematical specification
+- [`../README.md`](../README.md) — Repository overview
+- [`../python/theta_toolkit.py`](../python/theta_toolkit.py) — CPU reference implementation

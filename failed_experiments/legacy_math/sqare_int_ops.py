@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
+# ARCHIVED / EXPERIMENTAL CODE — NOT MAINTAINED
+# This file remains for reference only.
+# Do NOT use in production. No support, no guarantees.
+
 disclaimer = """
 
-> **Warning / Disclaimer**  
+> **Warning / Disclaimer**
 >This is an AI-assisted exploratory visualization project.
 >It is educational and experimental only—not peer-reviewed, not mathematical research, and not a new theorem.
 >It does not serve as evidence for or against conjectures.

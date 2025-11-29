@@ -1,5 +1,37 @@
+// ARCHIVED / EXPERIMENTAL CODE — NOT MAINTAINED
+// This file remains for reference only.
+// Do NOT use in production. No support, no guarantees.
+//
+// For the current CUDA implementation, see:
+//   - cuda/theta_cuda_v1.2.cuh
+//   - cuda/theta_cuda_benchmark_v1.2.cu
+//
+// ============================================================================
+// HISTORICAL NOTE
+// ============================================================================
+// This file was the FIRST attempt to implement theta-order prime analysis.
+// However, during development we discovered that the iteration logic was
+// actually processing integers in NATURAL ORDER (consecutive n, n+1, n+2...),
+// NOT in theta order (by angular position).
+//
+// The bug was identified when CSV output showed min_shell == max_shell for
+// every segment — true theta order would mix integers from MULTIPLE shells.
+//
+// Despite this, the code works correctly as a NATURAL ORDER prime analyzer:
+//   - Miller-Rabin primality testing is correct
+//   - Prime counting matches known values (e.g., π(2^32) = 203,280,221)
+//   - Statistics collection is valid for natural order iteration
+//
+// The file is kept for historical reference and because the natural-order
+// prime analysis functionality is still useful. The TRUE theta-order
+// implementation was built separately in theta_order_*.cu files.
+// ============================================================================
+
 /**
- * theta_order_analysis.cu - Unified GPU Prime Segment Analyzer
+ * natural_order_analysis.cu - Unified GPU Prime Segment Analyzer
+ *
+ * NOTE: Despite the original intent, this file iterates in NATURAL ORDER,
+ * not theta order. See HISTORICAL NOTE above for details.
  *
  * ============================================================================
  * DISCLAIMER

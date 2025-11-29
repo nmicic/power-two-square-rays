@@ -1,12 +1,12 @@
 # Power-of-Two Square Rays
 
-> **Disclaimer**  
->This is an AI-assisted exploratory visualization project.
->It is educational and experimental only—not peer-reviewed, not mathematical research, and not a new theorem.
->It does not serve as evidence for or against conjectures.
->This repository is math-art/visualization, not a research paper.
->Its purpose is educational exploration and aesthetic interest.
->Any visual patterns are artifacts of the construction.
+> **Disclaimer**
+>
+> This is an AI-assisted exploratory project. Educational and experimental only—not peer-reviewed.
+> The visualization part is math-art, not mathematical research or a new theorem.
+> The Theta Toolkit (CUDA/Python) is a working hashing implementation, but is **not cryptographic**
+> and **not for security-critical applications**.
+> Portions of this code include AI-assisted generation (ChatGPT, Claude). All work reviewed by the author.
 
 ---
 
@@ -72,7 +72,7 @@ For integer `n` in shell `k` (where `2^k ≤ n < 2^(k+1)`):
 2. Perimeter parameter: `t = (n - 2^k) / 2^k`
 3. Position clockwise on square perimeter from corner `(-R, R)`
 
-**Theta-key** encodes angular position using bit-reversal (integer-only):
+**theta_key** encodes angular position using bit-reversal (integer-only):
 
 ```
 theta_key(a) = bit_reverse(a, k bits)
@@ -148,19 +148,57 @@ python3 demo.py coord-analysis --exp 16 --csv output.csv
 python3 demo.py coord-analysis --exp 16 --ray 7
 ```
 
-Shell analysis: `shell_walker.py`
-
-```bash
-python3 shell_walker.py --poly          # Coordinate patterns
-python3 shell_walker.py --walk 6        # Walk through shell
-python3 shell_walker.py --svg 6-9       # Slice visualization
-```
-
 ---
 
-## CUDA
+## Theta Toolkit & CUDA Hashing
 
-Experimental CUDA code is in the `cuda/` directory.
+The same 2-adic decomposition powers a high-performance GPU hashing toolkit:
+
+```
+n = 2^v2(n) × core(n)
+theta_key(n) = bit_reverse(core(n))
+```
+
+The **theta_key** is an angular encoding derived purely from bitwise operations—no trigonometry. It preserves mathematical structure (shell, ray, quadrant) while achieving GPU hash performance on par with xxHash and MurmurHash3.
+
+### Performance (RTX 4000 Ada, 10M flows)
+
+| Hash | 32-bit (M/s) | 64-bit (M/s) |
+|------|--------------|--------------|
+| theta_key | 30,030 | 15,082 |
+| xxhash | 30,002 | 15,071 |
+| murmur3 | 30,141 | 15,036 |
+
+### Bucket Uniformity (64 buckets, chi-square)
+
+| Hash | Chi-sq | Verdict |
+|------|--------|---------|
+| theta_bucket | 73.1 | GOOD |
+| xxhash32 | 50.4 | GOOD |
+
+### Use Cases
+
+- **Flow-ID hashing** for power-of-two–heavy systems
+- **Spatial indexing** with locality preservation
+- **ML feature encoding** with interpretable structure
+- **Reversible hashing** (theta_key ↔ integer bijection)
+
+### What It Is NOT
+
+- **Not cryptographic** — deterministic, trivially reversible
+- **Not for security** — do not use to protect secrets
+- **Not a replacement for vetted hash libraries** in security contexts
+
+### Files
+
+| File | Description |
+|------|-------------|
+| `cuda/theta_cuda_v1.2.cuh` | Header-only GPU library |
+| `cuda/theta_cuda_benchmark_v1.2.cu` | GPU benchmark with pattern modes |
+| `cuda/THETA_SPEC_v1.2.md` | Complete specification |
+| `python/theta_toolkit.py` | CPU reference implementation |
+
+See [`cuda/README.md`](cuda/README.md) for detailed usage.
 
 ---
 
@@ -187,11 +225,26 @@ Floating-point appears only in SVG pixel rendering.
 
 ---
 
+## Failed Experiments / Archive
+
+The `failed_experiments/` directory contains early, exploratory, or abandoned code:
+
+- `failed_experiments/toolkit/` — old Python prototypes, toy crypto benchmarks, and visualization scripts.
+- `failed_experiments/old_cuda/` — old CUDA kernels for theta order, prime scans, etc.
+
+These are kept for transparency and historical reasons, but are **not maintained** and **not recommended for production use**.
+
+For the supported Theta implementation, see the `cuda/` directory:
+- `cuda/theta_cuda_v1.2.cuh` — Canonical CUDA header
+- `cuda/THETA_SPEC_v1.2.md` — Canonical specification
+
+---
+
 ## License
 
 MIT License
 
 ## Author
 
-Nenad Micic (nenad@micic.be)  
+Nenad Micic (nenad@micic.be)
 Brussels, Belgium — 2025

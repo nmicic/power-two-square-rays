@@ -1,0 +1,422 @@
+# NOTE
+# This is a meta-document (LLM prompt).
+# Not part of the supported toolkit.
+# Preserved for transparency and reproducibility of AI-assisted development.
+
+"""
+==============================================================================
+DISCLAIMER & PHILOSOPHY
+==============================================================================
+
+This is a **toy project** - a child holding a geometric cube, turning it 
+around, looking at it for hours out of pure curiosity.
+
+We are NOT:
+  - NASA with Hubble telescope
+  - Academic researchers making claims
+  - Mathematicians proving theorems
+
+We ARE:
+  - Hobby astrophotographers with a toy telescope
+  - Taking sporadic photos because they look interesting
+  - Fully admitting we have no clue about the deep structure
+
+Sometimes a kid with a toy telescope catches something interesting.
+Usually not. Either way, the looking is the point.
+
+This project exists to satisfy curiosity, not to make claims.
+
+
+INTEGER-NATIVE COMPUTATION - SYSTEM PROMPT
+==========================================
+
+NOTE: Context capture for AI systems working on this codebase.
+      This is a geometric visualization toy, not mathematics research.
+
+==============================================================================
+CORE PRINCIPLE
+==============================================================================
+
+Derive geometry from discrete constraints rather than discretizing continuous 
+geometry. All structure emerges from integer/bitwise operations. Trigonometry 
+is NEVER used in core logic, only in optional human-facing SVG rendering.
+
+==============================================================================
+THE 2-ADIC DECOMPOSITION (Foundation)
+==============================================================================
+
+FACT 1: Every positive integer n admits a UNIQUE decomposition:
+
+    n = 2^v2(n) × core(n)
+
+Where:
+  - v2(n) ≥ 0 is the 2-adic valuation (number of trailing zeros in binary)
+  - core(n) is ODD (the number with all factors of 2 removed)
+
+FACT 2: Both components are computable using ONLY bitwise operations:
+
+    v2(n)   = ctz(n)           # count trailing zeros
+    core(n) = n >> v2(n)       # right shift
+
+FACT 3: The SHELL of n is:
+
+    shell(n) = floor(log2(n)) = bit_length(n) - 1
+
+Shell k contains all integers in [2^k, 2^(k+1)), exactly 2^k integers.
+
+==============================================================================
+COORDINATE SYSTEM 1: SQUARE PERIMETER
+==============================================================================
+
+Integers are placed on concentric square perimeters.
+
+CONSTRUCTION:
+For n ≥ 2 in shell k (where 2^k ≤ n < 2^(k+1)):
+  1. Square has ℓ∞ radius R = 2^k
+  2. Perimeter parameter: t = (n - 2^k) / 2^k ∈ [0, 1)
+  3. Coordinate: C(n) = P_R(t) where P_R parameterizes square perimeter
+     clockwise from corner (-R, R)
+
+FACT 4 (Scaling Property):
+    C(2n) = 2 × C(n)    for all n ≥ 1
+
+Doubling a number doubles its distance from origin, same direction.
+[CONSTRUCTION CONSEQUENCE]
+
+theta_key: Integer Angular Position
+-----------------------------------
+The theta_key of odd number a is computed by bit-reversal:
+
+    theta_key(a) = bit_reverse(a, k bits)
+
+where k = shell(a) + 1 is the bit-length of a.
+
+THETA_KEY STRUCTURE:
+┌──────────┬────────────────────────┐
+│ Top 2    │ Position within edge   │
+│ bits     │                        │
+├──────────┼────────────────────────┤
+│ 00       │ TOP edge               │
+│ 01       │ RIGHT edge             │
+│ 10       │ BOTTOM edge            │
+│ 11       │ LEFT edge              │
+└──────────┴────────────────────────┘
+
+FACT 5: Sorting by theta_key produces angular ordering using ONLY integer 
+comparisons. No trigonometry needed.
+[CONSTRUCTION CONSEQUENCE: theta_key DEFINES angular position]
+
+FACT 6: theta_key is always odd (LSB = 1).
+[CONSTRUCTION CONSEQUENCE: bit_reverse of odd number has MSB→LSB = 1]
+
+==============================================================================
+THETA POSITION AND ODD CORE MAPPING
+==============================================================================
+
+A theta_position indexes angular directions.
+Each theta_position maps to exactly ONE odd core (first/smallest odd at that angle).
+
+THETA POSITION → ODD CORE:
+For theta_pos in valid range within shell k:
+
+    odd_core = theta_to_odd(theta_pos, shell)
+
+This mapping is:
+  - Deterministic: same input → same output
+  - Bijective within a shell: different theta_pos → different odd_core
+  - The odd_core is the "ray origin" for {odd_core × 2^j : j ≥ 0}
+
+FACT 7: All integers on the same ray share the same theta_key.
+[CONSTRUCTION CONSEQUENCE: theta_key is defined on odd core, ray members share core]
+
+SHELL RELATIONSHIP:
+  - Shell k has 2^(k-1) theta positions
+  - Shell k+1 has 2^k theta positions (twice as many)
+  - New positions INSERT BETWEEN existing ones
+  - Lower shell directions are a SUBSET of higher shell directions
+
+FACT 8: Theta positions form a complete binary tree structure.
+[CONSTRUCTION CONSEQUENCE: each position splits into 2 at next shell]
+
+==============================================================================
+COORDINATE SYSTEM 2: RAY STRUCTURE
+==============================================================================
+
+Alternative visualization - same structure, different view.
+
+CONSTRUCTION:
+Let X = base unit distance, Y = vertical center.
+
+Each odd core c defines a ray from (0, Y) with slope m_c.
+For integer n with core(n) = c in shell k:
+
+    x(n) = X × (2 - 2^(1-k))
+    y(n) = Y + m_c × x(n)
+
+DEFINED SLOPES:
+┌──────┬────────┬─────────────────────────────────────┐
+│ Core │ Slope  │ Property                            │
+├──────┼────────┼─────────────────────────────────────┤
+│ 1    │ -1     │ Descending ray                      │
+│ 3    │ +1     │ Ascending ray                       │
+│ 5    │  0     │ HORIZONTAL (passes all midpoints)   │
+│ 7    │ +4/3   │ Steeper ascending                   │
+└──────┴────────┴─────────────────────────────────────┘
+
+FACT 9 (Ray Collinearity): All integers with same odd core lie on same 
+straight line through (0, Y). 
+[CONSTRUCTION CONSEQUENCE: y = Y + m_c × x]
+
+FACT 10 (Horizontal Ray): Core-5 ray is horizontal (y = Y always).
+[CONSTRUCTION CONSEQUENCE: m_5 = 0 by definition]
+
+==============================================================================
+SHELL PROPERTIES (All Construction Consequences)
+==============================================================================
+
+FACT 11 (Shell X-Position):
+    x(shell k) = X × (2 - 2^(1-k))
+Geometric series approaching 2X.
+
+┌───────┬─────────────┬──────────────────┐
+│ Shell │ X-position  │ Δx from previous │
+├───────┼─────────────┼──────────────────┤
+│ 1     │ X           │ X                │
+│ 2     │ 3X/2        │ X/2              │
+│ 3     │ 7X/4        │ X/4              │
+│ 4     │ 15X/8       │ X/8              │
+│ k     │ X(2-2^(1-k))│ X/2^(k-1)        │
+└───────┴─────────────┴──────────────────┘
+
+FACT 12: Δx halves with each shell. Δy = m × Δx also halves.
+[CONSTRUCTION CONSEQUENCE: geometric series]
+
+FACT 13: Shell k contains 2^k integers: half odd (new rays), half even (existing rays).
+[CONSTRUCTION CONSEQUENCE: half of [2^k, 2^(k+1)) are odd]
+
+FACT 14: All coordinates are rational: X × (integer / 2^k).
+[CONSTRUCTION CONSEQUENCE: only powers of 2 in denominators]
+
+FACT 15 (Shell Inheritance):
+    Shell_(k+1) = {2n : n ∈ Shell_k} ∪ {new odds in [2^(k+1), 2^(k+2))}
+[CONSTRUCTION CONSEQUENCE: definition of shells]
+
+FACT 16: theta_key gaps can only decrease or stay same as shells increase.
+[CONSTRUCTION CONSEQUENCE: new positions subdivide existing gaps]
+
+==============================================================================
+ODD-CORE RAYS
+==============================================================================
+
+FACT 17 (Bijection):
+    odd_core ↔ theta_key ↔ ray
+One-to-one correspondence.
+[CONSTRUCTION CONSEQUENCE: bit_reverse is bijective]
+
+FACT 18 (Ray Contents):
+For odd core a, the ray contains: {a × 2^k : k ≥ 0}
+[DEFINITION of ray]
+
+FACT 19 (Binary Pattern on Ray):
+All elements share binary prefix, differ only in trailing zeros:
+    7 = 111, 14 = 1110, 28 = 11100, 56 = 111000
+[CONSTRUCTION CONSEQUENCE: ×2 = left shift = append zero]
+
+==============================================================================
+WHAT WE CAN LOOK AT (Not Claims, Just Observations)
+==============================================================================
+
+The structure provides a coordinate system. We can LOOK AT various features:
+
+THINGS TO OBSERVE:
+  - Where do primes land? (primes = integers with exactly 2 divisors)
+  - Where do high-popcount numbers land?
+  - How are gaps distributed?
+  - Do any visual patterns emerge?
+
+IMPORTANT:
+  - Observing is NOT claiming
+  - Patterns may be artifacts of how we arranged things
+  - "Looks interesting" ≠ "mathematically significant"
+  - We're a kid with a toy telescope, not NASA
+
+PRIMES IN THIS STRUCTURE:
+  - Odd primes p have core(p) = p (obvious - they're odd)
+  - This is true of ALL odd numbers, nothing special about primes
+  - Primes define rays, but so do all odd numbers
+  - We observe where they land, we don't claim it means anything
+
+==============================================================================
+THETA ORDER ITERATION (CUDA)
+==============================================================================
+
+NATURAL ORDER: 1, 2, 3, 4, 5, ... (sequential)
+THETA ORDER: Iterate by angular position across shells
+
+THETA ORDER PATTERN:
+```
+for (theta_pos = 0; theta_pos < max_theta; theta_pos++) {
+    for (shell = min_shell; shell <= max_shell; shell++) {
+        if (theta_pos < (1 << (shell - 1))) {
+            odd = theta_to_odd(theta_pos, shell);
+            observe(odd);  // Look at this integer
+        }
+    }
+}
+```
+
+WHY THETA ORDER:
+  - Groups integers by angular direction
+  - Each segment contains multiple shells
+  - Lets us look at "same direction, different distances"
+
+OPTIMIZED BIT REVERSAL (O(log k)):
+```c
+__device__ uint64_t bit_reverse_fast(uint64_t x, int k) {
+    x = ((x & 0x5555555555555555ULL) << 1)  | ((x >> 1)  & 0x5555555555555555ULL);
+    x = ((x & 0x3333333333333333ULL) << 2)  | ((x >> 2)  & 0x3333333333333333ULL);
+    x = ((x & 0x0F0F0F0F0F0F0F0FULL) << 4)  | ((x >> 4)  & 0x0F0F0F0F0F0F0F0FULL);
+    x = ((x & 0x00FF00FF00FF00FFULL) << 8)  | ((x >> 8)  & 0x00FF00FF00FF00FFULL);
+    x = ((x & 0x0000FFFF0000FFFFULL) << 16) | ((x >> 16) & 0x0000FFFF0000FFFFULL);
+    x = (x << 32) | (x >> 32);
+    return x >> (64 - k);
+}
+
+// Or use CUDA intrinsic:
+__device__ uint64_t bit_reverse_cuda(uint64_t x, int k) {
+    return __brevll(x) >> (64 - k);
+}
+```
+
+VERIFICATION:
+```
+shell_seen = 2-31  ← Correct (theta order, multiple shells per segment)
+shell_seen = 20-20 ← Wrong (natural order, single shell per segment)
+```
+
+==============================================================================
+COMPARING WHAT WE SEE (Validation Approach)
+==============================================================================
+
+To know if theta order shows anything interesting:
+
+1. OBSERVE with theta order
+2. OBSERVE with random permutation (same integers, shuffled)
+3. OBSERVE with natural order
+4. OBSERVE with popcount order
+5. COMPARE
+
+If theta order looks SAME as random → theta order is just another shuffle
+If theta order looks DIFFERENT → maybe interesting, look closer
+If theta order looks UNIQUE → curious, but could still be artifact
+
+This is how a kid with a toy telescope checks if they saw something real:
+compare with other photos, ask if it could be lens artifact, stay humble.
+
+==============================================================================
+EXTENSION TO 3D
+==============================================================================
+
+Same construction extends to cube surfaces:
+  - Six faces instead of four edges
+  - Surface area scales as 24R²
+  - Same algebraic properties
+
+Just another way to look at the same toy from a different angle.
+
+==============================================================================
+ALGORITHMIC CONSTRAINTS
+==============================================================================
+
+1. NO TRIG/FLOATS in core logic (visualization only)
+2. O(1) per-step operations where possible
+3. O(log k) for bit reversal (not O(k))
+4. Streaming-friendly (no huge precomputed tables)
+
+==============================================================================
+CODE ORGANIZATION
+==============================================================================
+
+Section tags:
+  [CORE]           - Integer-only operations
+  [NAVIGATION]     - Walking/traversal
+  [OBSERVATION]    - Looking at features (primes, gaps, etc.)
+  [VISUALIZATION]  - SVG rendering (floats OK here)
+
+==============================================================================
+SUMMARY OF CONSTRUCTION FACTS
+==============================================================================
+
+Everything below follows directly from how the toy is built:
+
+1.  Unique decomposition: n = 2^v2(n) × core(n)
+2.  Bijection: odd_core ↔ theta_key ↔ ray
+3.  Scaling: C(2n) = 2 × C(n)
+4.  Shell X-position: X(2 - 2^(1-k))
+5.  Δx halves each shell
+6.  Ray collinearity: y = Y + m × x
+7.  Core-5 is horizontal
+8.  All coordinates rational
+9.  Theta positions form binary tree
+10. theta_key always odd
+11. Ray members share theta_key
+12. Gaps can only shrink with more shells
+
+These are NOT discoveries. They're how the toy is built.
+Like saying "this cube has 6 faces" - true, but not profound.
+
+==============================================================================
+CRITICAL REVIEW REQUEST (For AI Models)
+==============================================================================
+
+You're encouraged to:
+
+1. FIND ERRORS in logic or implementation
+2. SUGGEST SIMPLER ways to build the same toy
+3. NOTE if this toy has a known name in mathematics
+4. POINT OUT what this toy CANNOT show us
+5. DISCOVER construction consequences not listed
+
+Report format:
+```
+[OBSERVATION]
+Type: (Error | Simplification | Connection | Limitation | New Fact)
+What: (description)
+Why: (reasoning)
+Confidence: (high/medium/low)
+```
+
+Remember: We're kids with a toy. Tell us if we're holding it upside down.
+
+==============================================================================
+EVALUATION STYLE
+==============================================================================
+
+When discussing this project:
+  - NO hype, NO grandiose claims
+  - "I looked and saw X" not "I discovered X"
+  - "This might be interesting" not "This is significant"
+  - Mark construction facts as [CONSTRUCTION CONSEQUENCE]
+  - Mark observations as [OBSERVATION]
+  - Stay humble - we're hobby astrophotographers, not NASA
+
+==============================================================================
+THE HONEST POSITION
+==============================================================================
+
+Q: Does this structure reveal deep truths about primes?
+A: We don't know. We're just looking.
+
+Q: Is theta order meaningful?
+A: We don't know. We're comparing with baselines.
+
+Q: What have you discovered?
+A: Nothing. We've built a toy and we're looking at it.
+
+Q: Why do this?
+A: Curiosity. Same reason a kid stares at a cube for hours.
+
+Sometimes toy telescopes catch something NASA missed.
+Usually they don't.
+The looking is the point.
+"""
